@@ -1,3 +1,5 @@
+require 'genmodel'
+
 module ParallelTests
   class Grouper
     class << self
@@ -57,11 +59,76 @@ module ParallelTests
         ParallelTests::Cucumber::Scenarios.all(tests, options)
       end
 
-      def group_features_by_size(items, groups_to_fill)
+      def group_features_by_size_best_effort(items, groups_to_fill)
         items.each do |item, size|
           size ||= 1
           smallest = smallest_group(groups_to_fill)
           add_to_group(smallest, item, size)
+        end
+      end
+
+      def group_features_by_size_solver(solver, items, groups_to_fill)
+        solver.SetBoolParam("mip", true)
+        solver.SetBoolParam("maximize", false)
+        #solver.SetBoolParam('log_output_stdout', true)
+        solver.SetDblParam('relative_mip_gap_tolerance', 0.002)
+
+        # Add variables
+        m = groups_to_fill.size
+        n = items.size
+        n.times { |i| m.times { |j| solver.AddVar("x_assign_test#{i}_to_bucket#{j}", 0.0, 0.0, 1.0, 'B') } }
+        solver.AddVar("y_max_time", 1.0, 0.0, Float::INFINITY, 'C')
+
+        # Add constraints
+        n.times do |i|
+          solver.AddConst("assign_test#{i}_to_one_bucket", 1.0, 'E')
+          m.times { |j| solver.AddNzToLast(i*m+j, 1.0) }
+        end
+
+        m.times do |j|
+          solver.AddConst("total_time_of_bucket#{j}_less_than_max_time", 0.0, 'L')
+          items.each_with_index  {|(_, size), index| solver.AddNzToLast(index*m+j, size)}
+          solver.AddNzToLast(n*m, -1.0)
+        end
+
+        solver.SetNumbers
+        solver.Init("JenkinsAssign")
+        solver.CreateModel
+
+        solver.Solve
+        solver.SetSol
+
+        if solver.hassolution
+          solution = solver.vars.GetSolution
+          items.each_with_index do |(path, size), i|
+            groups_to_fill.each_with_index do |group, j|
+              add_to_group(group, path, size) if solution[i*m+j] > 0.99
+            end
+          end
+          m.times do |j|
+            total_time = n.times.reduce(0) { |_total_time,i| _total_time+=items[i][1]*solution[i*m+j] }
+            puts "group_features_by_size_solver: total_time for bucket #{j}: #{total_time}s"
+          end
+        else
+          abort "group_features_by_size_solver: No solution found"
+        end
+      end
+
+      def group_features_by_size(items, groups_to_fill)
+        solver = if Genmodel::GenModelCplex.IsAvailable
+                   puts "group_features_by_size using Cplex"
+                   Genmodel::GenModelCplex.new
+                 elsif Genmodel::GenModelOsi.IsAvailable
+                   puts "group_features_by_size using Coin-OR"
+                   Genmodel::GenModelOsi.new
+                 else
+                   false
+                 end
+        if solver
+          group_features_by_size_solver(solver, items, groups_to_fill)
+        else
+          puts "group_features_by_size using best effort"
+          group_features_by_size_best_effort(items, groups_to_fill)
         end
       end
 

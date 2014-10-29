@@ -138,11 +138,18 @@ module ParallelTests
           if lines.size * 1.5 > tests.size
             puts "Using recorded test runtime: #{log}"
             times = Hash.new(1)
+            max = test_count = 0
+
             lines.each do |line|
               test, time = line.split(":")
               next unless test and time
+              test_count += 1
               times[File.expand_path(test)] = time.to_f
+              max += time.to_f
             end
+            # New tests are initialized with the average run time of all tests
+            # + 10% to ensure that new tests take some space in a bucket
+            times.default = (max / test_count) * 1.1 unless test_count == 0
             tests.sort.map{|test| [test, times[File.expand_path(test)]] }
           else # use file sizes
             with_filesize_info(tests)
