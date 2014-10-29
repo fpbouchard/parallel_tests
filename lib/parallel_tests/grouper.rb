@@ -1,4 +1,4 @@
-require 'genmodel'
+require 'Genmodel'
 
 module ParallelTests
   class Grouper
