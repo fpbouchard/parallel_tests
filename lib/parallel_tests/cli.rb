@@ -52,7 +52,11 @@ module ParallelTests
         report_results(test_results)
       end
 
-      abort final_fail_message if any_test_failed?(test_results)
+      status = exit_status(test_results)
+      if status != 0
+        STDERR.puts final_fail_message
+        exit status
+      end
     end
 
     def run_tests(group, process_number, num_processes, options)
@@ -85,8 +89,20 @@ module ParallelTests
     end
 
     #exit with correct status code so rake parallel:test && echo 123 works
-    def any_test_failed?(test_results)
-      test_results.any? { |result| result[:exit_status] != 0 }
+    def exit_status(test_results)
+      failure_exit_statuses = test_results.collect {|r| r[:exit_status]}.uniq.reject {|status| status == 0}
+      case failure_exit_statuses.size
+      when 0
+        0 # No error
+      when 1
+        # All failures are the same exit code, return it
+        failure_exit_statuses.first
+      else
+        # Return 1 if more than one unique non-zero exit code is returned; most
+        # likely something went wrong, we don't want to return the 'tests
+        # failed' exit code
+        1
+      end
     end
 
     def parse_options!(argv)
