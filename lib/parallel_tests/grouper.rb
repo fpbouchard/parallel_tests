@@ -105,9 +105,8 @@ module ParallelTests
               add_to_group(group, path, size) if solution[i*m+j] > 0.99
             end
           end
-          m.times do |j|
-            total_time = n.times.reduce(0) { |_total_time,i| _total_time+=items[i][1]*solution[i*m+j] }
-            puts "group_features_by_size_solver: total_time for bucket #{j}: #{total_time}s"
+          groups_to_fill.each_with_index do |group, index|
+            puts "group_features_by_size_solver: total_time for bucket #{index + 1}: #{group[:size]}s"
           end
         else
           abort "group_features_by_size_solver: No solution found"
