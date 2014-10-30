@@ -70,7 +70,7 @@ module ParallelTests
       def group_features_by_size_solver(solver, items, groups_to_fill)
         solver.SetBoolParam("mip", true)
         solver.SetBoolParam("maximize", false)
-        #solver.SetBoolParam('log_output_stdout', true)
+        solver.SetBoolParam('log_output_stdout', true)
         solver.SetDblParam('relative_mip_gap_tolerance', 0.002)
 
         # Add variables
