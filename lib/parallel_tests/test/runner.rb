@@ -149,7 +149,7 @@ module ParallelTests
             end
             # New tests are initialized with the average run time of all tests
             # + 10% to ensure that new tests take some space in a bucket
-            #times.default = (max / test_count) * 1.1 unless test_count == 0
+            times.default = (max / test_count) * 1.1 unless test_count == 0
             tests.sort.map{|test| [test, times[File.expand_path(test)]] }
           else # use file sizes
             with_filesize_info(tests)
